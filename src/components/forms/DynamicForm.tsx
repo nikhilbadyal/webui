@@ -155,10 +155,11 @@ export function DynamicForm({ viewName, objectId }: DynamicFormProps) {
   if (loading) return <Loading label={t('form.loadingData', 'Loading data...')} />;
 
   const isCreate = mode === 'create';
-  // User accounts governed by an external directory (LDAP, SQL, OIDC) are managed externally.
-  // Their profile attributes, credentials, and lifecycles cannot be mutated or deleted in Stalwart WebAdmin.
+  // User accounts governed by an external directory (LDAP, SQL, OIDC) have their identity and
+  // credentials managed externally. Deletion is blocked, but local Stalwart attributes (such as
+  // roles, permissions, and quotas) can be configured if the administrator has update permissions.
   const isExternalAccount = isAccountUser && hasExternalDirectory;
-  const readOnly = (!isCreate && !canUpdate) || isExternalAccount;
+  const readOnly = !isCreate && !canUpdate;
   const canDelete = !isCreate && !isSingleton && canDestroy && !isExternalAccount;
   const subtitle = (model.parentForm ?? model.variantForm)?.subtitle;
   const errorText = state.generalError ?? loadError;
@@ -272,7 +273,7 @@ export function DynamicForm({ viewName, objectId }: DynamicFormProps) {
           <p className="mt-1 text-xs text-muted-foreground">
             {t(
               'form.accountManagedExternallyDescription',
-              'This account is managed by an external directory (such as LDAP, SQL, or OIDC). Profile details, credentials, and account lifecycle are managed directly in your directory authority.',
+              'This account is managed by an external directory (such as LDAP, SQL, or OIDC). Identity and credentials are managed directly in your directory authority, while local roles, permissions, and quotas may be configured below.',
             )}
           </p>
         </div>
@@ -294,6 +295,7 @@ export function DynamicForm({ viewName, objectId }: DynamicFormProps) {
             recordLabel={model.recordLabel}
             baseline={state.original}
             tenantId={typeof tenantValue === 'string' ? tenantValue : null}
+            isExternalAccount={isExternalAccount}
           >
             <FormSections
               sections={model.sections}

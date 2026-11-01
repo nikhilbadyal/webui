@@ -272,7 +272,7 @@
     "userCreationExternalTitle": "User Account Creation is Managed Externally",
     "userCreationExternalDescription": "This server is configured with an external directory (such as LDAP, SQL, or OIDC). User accounts, credentials, and email aliases must be provisioned directly in your external directory authority.",
     "accountManagedExternallyTitle": "Account Managed by External Directory",
-    "accountManagedExternallyDescription": "This account is managed by an external directory (such as LDAP, SQL, or OIDC). Profile details, credentials, and account lifecycle are managed directly in your directory authority.",
+    "accountManagedExternallyDescription": "This account is managed by an external directory (such as LDAP, SQL, or OIDC). Identity and credentials are managed directly in your directory authority, while local roles, permissions, and quotas may be configured below.",
     "passwordManagedExternallyTitle": "Password Management is Handled Externally",
     "passwordManagedExternallyDescription": "This server authenticates accounts against an external directory. Password and authentication credentials must be updated directly in your directory provider.",
     "inheritsDefaultUserRoles": "Inherited default user roles:",
