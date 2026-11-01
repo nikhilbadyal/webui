@@ -57,13 +57,16 @@ export function EmbeddedObjectEditor({
   };
   const entries = embeddedEntries(resolved).filter(({ field }) => field.update !== 'serverSet');
 
+  // Normalize object name to account for the "x:" schema prefix (e.g. x:UserRoles, x:Permissions)
+  const normalizedName = objectName.replace(/^x:/, '');
+
   // Determine if the selected variant delegates role assignment to server-level default roles
   const isInheritedRole =
-    (objectName === 'UserRoles' && resolved.variant?.name !== 'Custom') ||
-    (objectName === 'Roles' && resolved.variant?.name === 'Default');
+    (normalizedName === 'UserRoles' && resolved.variant?.name !== 'Custom') ||
+    (normalizedName === 'Roles' && resolved.variant?.name === 'Default');
 
   // Determine if the selected variant delegates permissions to assigned roles
-  const isInheritedPermissions = objectName === 'Permissions' && resolved.variant?.name === 'Inherit';
+  const isInheritedPermissions = normalizedName === 'Permissions' && resolved.variant?.name === 'Inherit';
 
   const hasExtraInfo = isInheritedRole || isInheritedPermissions;
 
