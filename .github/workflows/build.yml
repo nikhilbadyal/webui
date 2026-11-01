@@ -2,8 +2,11 @@ name: Build and Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -35,6 +38,7 @@ jobs:
           esac
 
       - name: Check tag matches package version
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           TAG: ${{ github.ref_name }}
           VERSION: ${{ steps.version.outputs.version }}
@@ -60,7 +64,15 @@ jobs:
         run: |
           awk '/^## \[/{c++} c==1' CHANGELOG.md > release_body.md
 
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: webui-zip
+          path: webui.zip
+          retention-days: 1
+
       - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
           files: webui.zip
@@ -73,6 +85,7 @@ jobs:
   publish:
     name: Publish release
     needs: [build]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -84,7 +97,7 @@ jobs:
 
   rolling:
     name: Update rolling major release
-    needs: [build, publish]
+    needs: [build]
     if: needs.build.outputs.prerelease == 'false'
     runs-on: ubuntu-latest
     concurrency:
@@ -99,11 +112,16 @@ jobs:
       ROLLING_TAG: v${{ needs.build.outputs.major }}
       ASSET: webui.zip
     steps:
-      - name: Download versioned asset
-        run: gh release download "$TAG" --pattern "$ASSET"
+      - uses: actions/checkout@v6
+
+      - name: Download webui artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: webui-zip
 
       - name: Move rolling tag
         run: |
+          # Create or move the rolling tag (e.g. v2) to point to the latest commit
           if gh api "repos/$GH_REPO/git/ref/tags/$ROLLING_TAG" --silent 2>/dev/null; then
             gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$ROLLING_TAG" -f sha="$GITHUB_SHA" -F force=true --silent
           else
@@ -113,18 +131,18 @@ jobs:
       - name: Publish rolling release
         run: |
           title="Stalwart WebUI ${ROLLING_TAG#v}.x"
-          notes="Tracks the latest ${ROLLING_TAG#v}.x release."
+          notes="Tracks the latest ${ROLLING_TAG#v}.x release build."
           if gh release view "$ROLLING_TAG" >/dev/null 2>&1; then
-            gh release edit "$ROLLING_TAG" --title "$title" --notes "$notes" --draft=false --prerelease=false --latest=false
+            gh release edit "$ROLLING_TAG" --title "$title" --notes "$notes" --draft=false --prerelease=false --latest=true
             gh release upload "$ROLLING_TAG" "$ASSET" --clobber
           else
-            gh release create "$ROLLING_TAG" "$ASSET" --verify-tag --title "$title" --notes "$notes" --latest=false
+            gh release create "$ROLLING_TAG" "$ASSET" --verify-tag --title "$title" --notes "$notes" --latest=true
           fi
 
   cleanup:
     name: Cleanup failed release
     needs: [build]
-    if: failure()
+    if: failure() && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
