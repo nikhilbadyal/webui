@@ -24,6 +24,8 @@ interface FormProviderProps {
   recordLabel?: string;
   baseline?: unknown;
   tenantId?: string | null;
+  // Indicates if the account is external directory-backed so field rows can restrict directory-managed fields
+  isExternalAccount?: boolean;
   children: ReactNode;
 }
 
@@ -35,6 +37,7 @@ export function FormProvider({
   recordLabel = '',
   baseline = null,
   tenantId = null,
+  isExternalAccount = false,
   children,
 }: FormProviderProps) {
   const isCommunity = useIsCommunity();
@@ -49,6 +52,7 @@ export function FormProvider({
     recordLabel,
     baseline,
     tenantId,
+    isExternalAccount,
   };
   const scope: FieldScope = { path: [], readOnly };
   return (
