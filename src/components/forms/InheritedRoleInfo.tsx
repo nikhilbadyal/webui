@@ -22,8 +22,11 @@ interface RoleInheritanceDescriptor {
  * role assignment to global Authentication singleton settings.
  */
 function resolveRoleInheritance(objectName: string, variant: string): RoleInheritanceDescriptor | null {
+  // Normalize object name to handle schema definitions both with and without the "x:" prefix
+  const normalized = objectName.replace(/^x:/, '');
+
   // User accounts distinguish standard user roles from system administrator roles
-  if (objectName === 'UserRoles') {
+  if (normalized === 'UserRoles') {
     if (variant === 'User') {
       return {
         property: 'defaultUserRoleIds',
@@ -41,7 +44,7 @@ function resolveRoleInheritance(objectName: string, variant: string): RoleInheri
   }
 
   // Groups and other directory objects inherit server default group roles
-  if (objectName === 'Roles' && variant === 'Default') {
+  if (normalized === 'Roles' && variant === 'Default') {
     return {
       property: 'defaultGroupRoleIds',
       labelKey: 'form.inheritsDefaultGroupRoles',
