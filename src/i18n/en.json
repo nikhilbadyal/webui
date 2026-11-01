@@ -269,7 +269,13 @@
     "unsavedChanges": "You have unsaved changes. Are you sure you want to leave?",
     "unsavedChangesLabel": "Unsaved changes",
     "unsavedChangesTitle": "Unsaved changes",
-    "notConfirmed": "The server did not confirm the change."
+    "notConfirmed": "The server did not confirm the change.",
+    "userCreationExternalTitle": "User Account Creation is Managed Externally",
+    "userCreationExternalDescription": "This server is configured with an external directory (such as LDAP, SQL, or OIDC). User accounts, credentials, and email aliases must be provisioned directly in your external directory authority.",
+    "accountManagedExternallyTitle": "Account Managed by External Directory",
+    "accountManagedExternallyDescription": "This account is managed by an external directory (such as LDAP, SQL, or OIDC). Profile details, credentials, and account lifecycle are managed directly in your directory authority.",
+    "passwordManagedExternallyTitle": "Password Management is Handled Externally",
+    "passwordManagedExternallyDescription": "This server authenticates accounts against an external directory. Password and authentication credentials must be updated directly in your directory provider."
   },
   "globalSearch": {
     "create": "Create",
@@ -335,6 +341,7 @@
     "confirmMassDescription": "Apply \"{{action}}\" to {{count}} {{name}}?",
     "confirmTitle": "Confirm Action",
     "create": "Create {{name}}",
+    "managedByExternalDirectory": "Managed by external directory",
     "delete": "Delete",
     "deleteAll": "Delete all",
     "deleteAllMatchingDescription": "Are you sure you want to delete ALL {{name}} matching the current filters? This action cannot be undone.",
