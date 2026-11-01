@@ -11,6 +11,7 @@ import { ArrowLeft, Check, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { FloatingActionBar, FloatingActionDivider, FloatingActionDot } from '@/components/common/FloatingActionBar';
+import { useJmapList } from '@/data/objects';
 import { useCanAccess } from '@/hooks/usePermissions';
 import { coerceLabel } from '@/lib/objectOptions';
 import { TENANT_PROPERTY } from '@/lib/schemaResolver';
@@ -144,12 +145,21 @@ export function DynamicForm({ viewName, objectId }: DynamicFormProps) {
   const sectionPrefix = useId();
   const wide = useSyncExternalStore(subscribeWide, isWide, () => false);
 
+  const isAccountUser = viewName === 'x:Account/User';
+  const isAccountPassword = viewName === 'x:AccountPassword';
+  const isExternalDirectoryChecked = isAccountUser || isAccountPassword;
+  const { data: directoryList } = useJmapList('x:Directory', { limit: 1 }, { enabled: isExternalDirectoryChecked });
+  const hasExternalDirectory = isExternalDirectoryChecked && (directoryList?.ids.length ?? 0) > 0;
+
   if (!schema || !resolved) return <Loading label={t('form.loadingSchema', 'Loading schema...')} />;
   if (loading) return <Loading label={t('form.loadingData', 'Loading data...')} />;
 
   const isCreate = mode === 'create';
-  const readOnly = !isCreate && !canUpdate;
-  const canDelete = !isCreate && !isSingleton && canDestroy;
+  // User accounts governed by an external directory (LDAP, SQL, OIDC) are managed externally.
+  // Their profile attributes, credentials, and lifecycles cannot be mutated or deleted in Stalwart WebAdmin.
+  const isExternalAccount = isAccountUser && hasExternalDirectory;
+  const readOnly = (!isCreate && !canUpdate) || isExternalAccount;
+  const canDelete = !isCreate && !isSingleton && canDestroy && !isExternalAccount;
   const subtitle = (model.parentForm ?? model.variantForm)?.subtitle;
   const errorText = state.generalError ?? loadError;
   const header = (
@@ -185,6 +195,60 @@ export function DynamicForm({ viewName, objectId }: DynamicFormProps) {
       </div>
     );
   }
+
+  // Intercept direct navigation to x:Account/User/new when external directories are configured.
+  // In external directory mode (such as LDAP, SQL, or OIDC), user accounts and credentials are
+  // managed by the directory authority. Stalwart's JMAP API disallows credential creation on
+  // accounts under an external directory. Display an informative advisory and back action.
+  if (isCreate && isExternalAccount) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-5">
+        {header}
+        <div className="rounded-xl border border-border bg-card p-6 shadow-xs" role="alert">
+          <h2 className="text-base font-semibold text-foreground">
+            {t('form.userCreationExternalTitle', 'User Account Creation is Managed Externally')}
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t(
+              'form.userCreationExternalDescription',
+              'This server is configured with an external directory (such as LDAP, SQL, or OIDC). User accounts, credentials, and email aliases must be provisioned directly in your external directory authority.',
+            )}
+          </p>
+          <div className="mt-5">
+            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+              {t('common.back', 'Back to Accounts')}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Intercept direct password changes when an external directory is configured.
+  // Stalwart's JMAP API rejects password modification on accounts under an external directory.
+  if (isAccountPassword && hasExternalDirectory) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-5">
+        {header}
+        <div className="rounded-xl border border-border bg-card p-6 shadow-xs" role="alert">
+          <h2 className="text-base font-semibold text-foreground">
+            {t('form.passwordManagedExternallyTitle', 'Password Management is Handled Externally')}
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t(
+              'form.passwordManagedExternallyDescription',
+              'This server authenticates accounts against an external directory. Password and authentication credentials must be updated directly in your directory provider.',
+            )}
+          </p>
+          <div className="mt-5">
+            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+              {t('common.back', 'Back')}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const deleteLabel = (
     resolved.list?.singularName ??
     resolved.object.objectType.description ??
@@ -198,6 +262,21 @@ export function DynamicForm({ viewName, objectId }: DynamicFormProps) {
   return (
     <div className={cn('mx-auto space-y-5', showIndex ? 'max-w-6xl' : 'max-w-5xl')}>
       {header}
+
+      {/* Inform administrators when viewing an account managed by an external directory */}
+      {isExternalAccount && !isCreate && (
+        <div className="rounded-xl border border-border bg-card p-4 shadow-xs" role="alert">
+          <h2 className="text-sm font-semibold text-foreground">
+            {t('form.accountManagedExternallyTitle', 'Account Managed by External Directory')}
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t(
+              'form.accountManagedExternallyDescription',
+              'This account is managed by an external directory (such as LDAP, SQL, or OIDC). Profile details, credentials, and account lifecycle are managed directly in your directory authority.',
+            )}
+          </p>
+        </div>
+      )}
 
       {errorText && (
         <div className="rounded-xl bg-destructive-soft p-4" role="alert">
