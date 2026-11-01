@@ -19,6 +19,9 @@ export interface FormContextValue {
   recordLabel: string;
   baseline: unknown;
   tenantId: string | null;
+  // Indicates if the form is editing an account backed by an external directory authority (e.g. SQL/LDAP),
+  // allowing field renderers to selectively disable directory-managed fields while keeping local settings editable.
+  isExternalAccount?: boolean;
 }
 
 export interface FieldScope {
