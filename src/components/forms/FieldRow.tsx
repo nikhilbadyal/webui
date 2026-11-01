@@ -24,6 +24,19 @@ import type { Field, FormField } from '@/types/schema';
 
 const ARIA_REQUIRED_TYPES = new Set(['string', 'number', 'enum', 'blobId']);
 
+// Top-level identity attributes and credentials that are strictly governed by external directory authorities
+// (e.g. LDAP, SQL, OIDC). These cannot be safely mutated inside Stalwart WebAdmin because the external
+// directory remains the authoritative source of truth. Local fields (such as roles, permissions, quotas)
+// remain editable locally.
+const EXTERNAL_DIRECTORY_MANAGED_FIELDS = new Set([
+  'name',
+  'domainId',
+  'emailAddress',
+  'credentials',
+  'aliases',
+  'secrets',
+]);
+
 export interface FieldRowProps {
   field: Field;
   formField: FormField;
@@ -87,11 +100,14 @@ export function FieldRow({ field, formField, value, onChange, error, readOnly: f
   const referencesLocked =
     ft.type === 'objectId' && ctx.isCommunity && !!resolveObject(ctx.schema, ft.objectName)?.enterprise;
   const locked = isEnterpriseLockedIn(ctx, field.enterprise);
+  // Identity attributes and credentials for external directory accounts cannot be mutated in Stalwart
+  const isExternalField = ctx.isExternalAccount && topLevel && EXTERNAL_DIRECTORY_MANAGED_FIELDS.has(formField.name);
   const readOnly =
     scope.readOnly ||
     forceReadOnly ||
     locked ||
     referencesLocked ||
+    isExternalField ||
     field.update === 'serverSet' ||
     (topLevel && ctx.mode === 'edit' && field.update === 'immutable');
   const traits = widgetTraits(ft);
