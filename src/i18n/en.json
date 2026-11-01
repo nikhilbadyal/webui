@@ -275,7 +275,12 @@
     "accountManagedExternallyTitle": "Account Managed by External Directory",
     "accountManagedExternallyDescription": "This account is managed by an external directory (such as LDAP, SQL, or OIDC). Profile details, credentials, and account lifecycle are managed directly in your directory authority.",
     "passwordManagedExternallyTitle": "Password Management is Handled Externally",
-    "passwordManagedExternallyDescription": "This server authenticates accounts against an external directory. Password and authentication credentials must be updated directly in your directory provider."
+    "passwordManagedExternallyDescription": "This server authenticates accounts against an external directory. Password and authentication credentials must be updated directly in your directory provider.",
+    "inheritsDefaultUserRoles": "Inherited default user roles:",
+    "inheritsDefaultAdminRoles": "Inherited default administrator roles:",
+    "inheritsDefaultGroupRoles": "Inherited default group roles:",
+    "noDefaultRolesConfigured": "None configured",
+    "permissionsInheritedFromRoles": "Permissions are automatically inherited from assigned roles."
   },
   "globalSearch": {
     "create": "Create",
