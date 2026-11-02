@@ -112,6 +112,31 @@ This starts Vite's development server with hot module replacement, typically at 
 
 Unit and end-to-end tests are maintained in a separate repository.
 
+## Maintaining this fork
+
+The **Sync upstream** workflow checks `stalwartlabs/webui:main` every six hours
+(00:17, 06:17, 12:17, and 18:17 UTC), or on manual dispatch. It rebases this
+fork's custom commits on `main`, validates type checking, linting, and the build,
+then pushes with an explicit lease so concurrent commits cannot be overwritten.
+It does not add sync merge commits or move release tags. A successful push starts
+**Build and Release**, which builds this fork's exact pushed commit.
+
+Before enabling the workflow, create a fine-grained personal access token limited
+to this fork with **Contents: Read and write** and **Workflows: Read and write**.
+Save it as the repository Actions secret `SYNC_FORK_TOKEN`. Enable GitHub Actions
+and Issues, keep `main` as the default branch, and allow the token owner to force
+push `main` if branch rules restrict it. Renew the token before it expires.
+
+Failures open or update one **Upstream sync failed** issue containing the workflow
+logs link; a successful sync check closes it. Subscribe to that issue or enable
+Actions failure notifications to receive alerts. Conflicts require manual
+resolution; failed rebases or validation leave remote `main` unchanged.
+
+Rebasing changes the IDs of custom commits. After a remote sync, fetch the fork
+and align a clean local `main` with `origin/main` before starting new work; save
+uncommitted or unpushed work first. Public repository schedules can be disabled
+after 60 days of inactivity and may need re-enabling in the Actions tab.
+
 ## Building for production
 
 ```
