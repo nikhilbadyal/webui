@@ -1,0 +1,128 @@
+# Rebase the solo fork so upstream updates do not add synchronization merge commits.
+name: Sync upstream
+
+on:
+  schedule:
+    # Offset from the hour to avoid the busiest scheduled-run window (UTC).
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+# Only the reporting job needs write access through the automatic token.
+permissions:
+  contents: read
+
+# Keep issue reporting serialized with syncing; never interrupt a rebase or push.
+concurrency:
+  group: sync-upstream-main
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Require sync credentials
+        env:
+          SYNC_TOKEN: ${{ secrets.SYNC_FORK_TOKEN }}
+        run: |
+          # A PAT permits workflow-file updates and triggers the fork's push build.
+          if [ -z "$SYNC_TOKEN" ]; then
+            echo '::error::Set SYNC_FORK_TOKEN with Contents and Workflows write access to this fork.'
+            exit 1
+          fi
+
+      - uses: actions/checkout@v6
+        with:
+          # Always rebase the fork's current main, including on manual dispatch.
+          repository: ${{ github.repository }}
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_FORK_TOKEN }}
+
+      - name: Rebase onto upstream
+        id: rebase
+        run: |
+          # Capture the remote tip before any work so a concurrent user push wins.
+          original_sha=$(git rev-parse HEAD)
+          echo "original_sha=$original_sha" >> "$GITHUB_OUTPUT"
+          git remote add upstream https://github.com/stalwartlabs/webui.git
+          git fetch --no-tags upstream main
+          upstream_sha=$(git rev-parse FETCH_HEAD)
+
+          # An idle sync must not rewrite commits or trigger a new release build.
+          if git merge-base --is-ancestor "$upstream_sha" HEAD; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Keep original authors; the bot identity records only the new committer.
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if ! git rebase "$upstream_sha"; then
+            echo '::error::Upstream rebase conflicted; resolve locally and push main before retrying.'
+            git diff --name-only --diff-filter=U
+            git rebase --abort
+            exit 1
+          fi
+          echo 'changed=true' >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v6
+        if: steps.rebase.outputs.changed == 'true'
+        with:
+          # Match the release build so validation tests the same toolchain.
+          node-version: 22
+          cache: npm
+
+      - name: Validate rebased fork
+        if: steps.rebase.outputs.changed == 'true'
+        run: |
+          # Validate the combined code before publishing any rewritten history.
+          npm ci
+          npm run typecheck
+          npx eslint src/
+          npm run build
+
+      - name: Publish rebased main
+        if: steps.rebase.outputs.changed == 'true'
+        env:
+          ORIGINAL_SHA: ${{ steps.rebase.outputs.original_sha }}
+        run: |
+          # Update only main, preserving release tags and refusing concurrent edits.
+          git push --force-with-lease="refs/heads/main:$ORIGINAL_SHA" origin HEAD:refs/heads/main
+
+  report:
+    needs: sync
+    # Report setup failures too, even when checkout or the rebase could not run.
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Maintain sync failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SYNC_RESULT: ${{ needs.sync.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Reuse one exact-title issue instead of opening one every six hours.
+          issue_number=$(gh issue list --state open --search '"Upstream sync failed" in:title' \
+            --json number,title --jq '[.[] | select(.title == "Upstream sync failed")][0].number // empty')
+          if [ "$SYNC_RESULT" = 'failure' ]; then
+            # Use a file to preserve Markdown newlines in both create and edit calls.
+            body_file="$RUNNER_TEMP/upstream-sync-failure.md"
+            {
+              printf 'Automatic rebase of the fork main branch onto stalwartlabs/webui:main failed.\n\n'
+              printf '[Inspect the failed workflow run](%s).\n\n' "$RUN_URL"
+              printf 'Check the logs for a missing or expired SYNC_FORK_TOKEN, rebase conflicts, failed validation, or a concurrent push.\n\n'
+              printf 'The sync job never pushes before validation passes. Resolve the cause and rerun **Sync upstream**. This issue closes automatically after a successful sync check.\n'
+            } > "$body_file"
+            if [ -n "$issue_number" ]; then
+              gh issue edit "$issue_number" --body-file "$body_file"
+            else
+              gh issue create --title 'Upstream sync failed' --body-file "$body_file"
+            fi
+          elif [ "$SYNC_RESULT" = 'success' ] && [ -n "$issue_number" ]; then
+            # A successful no-op also confirms that upstream is already integrated.
+            gh issue close "$issue_number" --comment "Upstream sync is healthy again: $RUN_URL"
+          fi
