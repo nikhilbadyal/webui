@@ -86,8 +86,35 @@ jobs:
           # fire on broken builds.
           draft: true
 
+      - name: Publish commit release
+        # Publish every successful main build, including rebased pushes and manual reruns.
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Full commit IDs keep releases unique without changing the package version.
+          tag="build-$GITHUB_SHA"
+          title="Stalwart WebUI $VERSION (${GITHUB_SHA:0:12})"
+          {
+            printf 'Build of commit %s on this fork.\n\n' "$GITHUB_SHA"
+            git log -1 --format=%s
+            printf '\n[Workflow run](%s/%s/actions/runs/%s)\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+          } > commit_release_body.md
+
+          # Reruns refresh the same commit's asset rather than creating duplicates.
+          # The rolling major release retains the Latest badge and stable download URL.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" webui.zip --clobber
+          else
+            gh release create "$tag" webui.zip --target "$GITHUB_SHA" \
+              --title "$title" --notes-file commit_release_body.md --latest=false
+          fi
+
   publish:
-    name: Publish release
+    # Distinguish version-tag publication from the per-commit releases in the build job.
+    name: Publish version tag release
     needs: [build]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
