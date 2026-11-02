@@ -20,6 +20,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Build this fork's triggering revision, including its rebased custom commits.
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
 
       - uses: actions/setup-node@v6
         with:
@@ -113,6 +117,10 @@ jobs:
       ASSET: webui.zip
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Keep release metadata tied to the exact revision used by the build job.
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
 
       - name: Download webui artifact
         uses: actions/download-artifact@v4
