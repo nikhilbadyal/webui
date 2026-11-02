@@ -119,7 +119,10 @@ The **Sync upstream** workflow checks `stalwartlabs/webui:main` every six hours
 fork's custom commits on `main`, validates type checking, linting, and the build,
 then pushes with an explicit lease so concurrent commits cannot be overwritten.
 It does not add sync merge commits or move release tags. A successful push starts
-**Build and Release**, which builds this fork's exact pushed commit.
+**Build and Release**, which builds this fork's exact pushed commit. Every
+successful `main` build publishes a separate `build-<full commit SHA>` release
+with `webui.zip`; reruns update that commit's asset. The rolling major release
+(such as `v2`) continues to provide the latest stable build at a fixed URL.
 
 Before enabling the workflow, create a fine-grained personal access token limited
 to this fork with **Contents: Read and write** and **Workflows: Read and write**.
